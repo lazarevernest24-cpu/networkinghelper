@@ -1,0 +1,30 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:Анна Петрова
+N:Петрова;Анна;;;
+TEL:+79991234567
+EMAIL:anna.petrova@example.com
+ORG:TechCorp
+TITLE:Product Manager
+NOTE:Познакомились на конференции ProductCamp 2025
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Михаил Соколов
+N:Соколов;Михаил;;;
+TEL:+79165554433
+EMAIL:m.sokolov@startup.io
+ORG:GreenStartup
+TITLE:CEO & Founder
+NOTE:Встретились на демо-дне акселератора
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Елена Новикова
+N:Новикова;Елена;;;
+TEL:+79263332211
+EMAIL:elena.n@consulting.com
+ORG:McKinsey
+TITLE:Senior Consultant
+NOTE:Однокурсница из ВШЭ, работает с FMCG-сектором
+END:VCARD
