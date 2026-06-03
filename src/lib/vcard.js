@@ -1,120 +1,148 @@
-// Парсер vCard 2.1/3.0/4.0 файлов из экспорта телефонной книги iOS/Android
-// Поддерживает несколько контактов в одном .vcf файле + базовые поля
-
-function unfold(text) {
-  // RFC 6350: продолжение строки начинается с пробела/таба
-  return text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
+// vCard parser — handles iOS/Android exports with UTF-8 and quoted-printable encoding
+function decodeQP(str) {
+  return str.replace(/=\r?\n/g, '').replace(/=([0-9A-Fa-f]{2})/g, (_, hex) =>
+    String.fromCharCode(parseInt(hex, 16))
+  );
 }
 
-function decodeQuotedPrintable(str) {
-  return str.replace(/=([0-9A-F]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-}
-
-function parseLine(line) {
-  // FORMAT: PROPERTY[;PARAM=val][;PARAM=val]:VALUE
-  const colonIdx = line.indexOf(':');
-  if (colonIdx === -1) return null;
-  const left = line.substring(0, colonIdx);
-  let value = line.substring(colonIdx + 1);
-  const parts = left.split(';');
-  const property = parts[0].toUpperCase();
-  const params = {};
-  for (let i = 1; i < parts.length; i++) {
-    const [k, v] = parts[i].split('=');
-    params[k.toUpperCase()] = (v || '').toUpperCase();
+function decodeValue(val, encoding, charset) {
+  let s = val;
+  if (encoding === 'QUOTED-PRINTABLE') s = decodeQP(s);
+  if (charset === 'UTF-8' || !charset) {
+    try {
+      if (encoding === 'QUOTED-PRINTABLE') {
+        const bytes = s.split('').map(c => c.charCodeAt(0));
+        s = new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+      }
+    } catch {}
   }
-  if (params.ENCODING === 'QUOTED-PRINTABLE') {
-    value = decodeQuotedPrintable(value);
-  }
-  if (params.CHARSET === 'UTF-8' || params.ENCODING === 'QUOTED-PRINTABLE') {
-    try { value = decodeURIComponent(escape(value)); } catch (_) {}
-  }
-  return { property, params, value };
-}
-
-function uid() {
-  return 'c_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  return s.trim();
 }
 
 export function parseVCard(text) {
-  text = unfold(text);
-  const lines = text.split(/\r?\n/);
+  const cards = text.split(/BEGIN:VCARD/i).slice(1);
   const contacts = [];
-  let current = null;
 
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) continue;
-    if (line.toUpperCase() === 'BEGIN:VCARD') {
-      current = { id: uid(), name: '', firstName: '', lastName: '', phone: '', email: '', company: '', position: '', notes: '', tags: [], context: '', reminderDays: 60, lastContact: null, createdAt: Date.now() };
-      continue;
-    }
-    if (line.toUpperCase() === 'END:VCARD') {
-      if (current) {
-        // если имя пустое — собираем из first/last или подставляем заглушку
-        if (!current.name) {
-          current.name = (current.firstName + ' ' + current.lastName).trim() || 'Без имени';
-        }
-        contacts.push(current);
-        current = null;
+  for (const card of cards) {
+    const lines = [];
+    const rawLines = card.split(/\r?\n/);
+    // unfold continuation lines
+    for (const line of rawLines) {
+      if (/^[ \t]/.test(line) && lines.length) {
+        lines[lines.length - 1] += line.slice(1);
+      } else {
+        lines.push(line);
       }
-      continue;
     }
-    if (!current) continue;
-    const parsed = parseLine(line);
-    if (!parsed) continue;
-    const { property, value } = parsed;
 
-    if (property === 'FN') {
-      current.name = value;
-    } else if (property === 'N') {
-      // Структура: Фамилия;Имя;Отчество;Приставка;Суффикс
-      const parts = value.split(';');
-      current.lastName = parts[0] || '';
-      current.firstName = parts[1] || '';
-    } else if (property === 'TEL' && !current.phone) {
-      current.phone = value.replace(/[^\d+]/g, '');
-    } else if (property === 'EMAIL' && !current.email) {
-      current.email = value;
-    } else if (property === 'ORG' && !current.company) {
-      current.company = value.split(';')[0];
-    } else if (property === 'TITLE' && !current.position) {
-      current.position = value;
-    } else if (property === 'NOTE' && !current.notes) {
-      current.notes = value;
+    const get = (key) => {
+      for (const line of lines) {
+        const upper = line.toUpperCase();
+        if (!upper.startsWith(key.toUpperCase())) continue;
+        const colonIdx = line.indexOf(':');
+        if (colonIdx < 0) continue;
+        const params = line.slice(0, colonIdx).split(';').slice(1);
+        const paramObj = {};
+        for (const p of params) {
+          const [k, v] = p.split('=');
+          if (k && v) paramObj[k.toUpperCase()] = v.toUpperCase();
+        }
+        const val = line.slice(colonIdx + 1);
+        return decodeValue(val, paramObj['ENCODING'], paramObj['CHARSET']);
+      }
+      return '';
+    };
+
+    const getAll = (key) => {
+      const results = [];
+      for (const line of lines) {
+        if (line.toUpperCase().startsWith(key.toUpperCase())) {
+          const colonIdx = line.indexOf(':');
+          if (colonIdx >= 0) results.push(line.slice(colonIdx + 1).trim());
+        }
+      }
+      return results;
+    };
+
+    const fnRaw = get('FN');
+    const nRaw = get('N');
+    let name = fnRaw;
+    if (!name && nRaw) {
+      const parts = nRaw.split(';');
+      name = [parts[1], parts[0]].filter(Boolean).join(' ');
     }
+    if (!name) continue;
+
+    const phones = getAll('TEL');
+    const emails = getAll('EMAIL');
+    const org = get('ORG').split(';')[0];
+    const title = get('TITLE');
+
+    contacts.push({
+      id: 'c_' + Math.random().toString(36).slice(2) + Date.now().toString(36),
+      name: name.trim(),
+      phone: phones[0] || '',
+      email: emails[0] || '',
+      company: org || '',
+      position: title || '',
+      tags: [],
+      reminderDays: 60,
+      lastContact: null,
+      createdAt: Date.now(),
+      context: '',
+      notes: '',
+      interests: '',
+      canHelpMe: '',
+      canHelpThem: '',
+      goals: '',
+    });
   }
+
   return contacts;
 }
 
-// Демо-файл для скачивания, если у пользователя нет .vcf под рукой
 export const sampleVCard = `BEGIN:VCARD
 VERSION:3.0
 FN:Анна Петрова
 N:Петрова;Анна;;;
-TEL:+79991234567
-EMAIL:anna.petrova@example.com
-ORG:TechCorp
+ORG:ТехКорп
 TITLE:Product Manager
-NOTE:Познакомились на конференции ProductCamp 2025
+TEL:+7 999 123-45-67
+EMAIL:anna@techcorp.ru
 END:VCARD
 BEGIN:VCARD
 VERSION:3.0
-FN:Михаил Соколов
-N:Соколов;Михаил;;;
-TEL:+79165554433
-EMAIL:m.sokolov@startup.io
-ORG:GreenStartup
-TITLE:CEO & Founder
-NOTE:Встретились на демо-дне акселератора
+FN:Дмитрий Козлов
+N:Козлов;Дмитрий;;;
+ORG:Стартап Лаб
+TITLE:Founder & CEO
+TEL:+7 916 234-56-78
+EMAIL:dk@startuplab.ru
 END:VCARD
 BEGIN:VCARD
 VERSION:3.0
-FN:Елена Новикова
-N:Новикова;Елена;;;
-TEL:+79263332211
-EMAIL:elena.n@consulting.com
-ORG:McKinsey
-TITLE:Senior Consultant
-NOTE:Однокурсница из ВШЭ, работает с FMCG-сектором
+FN:Мария Смирнова
+N:Смирнова;Мария;;;
+ORG:Яндекс
+TITLE:Senior Engineer
+TEL:+7 903 345-67-89
+EMAIL:m.smirnova@yandex.ru
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Алексей Волков
+N:Волков;Алексей;;;
+ORG:SberTech
+TITLE:Head of Growth
+TEL:+7 926 456-78-90
+EMAIL:a.volkov@sbertech.ru
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Екатерина Новикова
+N:Новикова;Екатерина;;;
+ORG:Tinkoff
+TITLE:UX Director
+TEL:+7 967 567-89-01
+EMAIL:e.novikova@tinkoff.ru
 END:VCARD`;

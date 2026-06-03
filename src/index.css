@@ -1,55 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   html, body {
-    background: #F7F4ED;
-    color: #1C1917;
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    background: #F5F1E8;
+    color: #1c1917;
+    font-family: 'DM Sans', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
   }
-  body {
-    background-image:
-      radial-gradient(at 0% 0%, rgba(31, 78, 61, 0.04) 0%, transparent 50%),
-      radial-gradient(at 100% 100%, rgba(184, 137, 58, 0.05) 0%, transparent 50%);
-    min-height: 100vh;
-  }
-  ::selection { background: #1F4E3D; color: #F7F4ED; }
-  input, textarea, select { font-family: inherit; }
+  * { box-sizing: border-box; }
+  ::selection { background: #059669; color: #fff; }
 }
 
 @layer components {
-  .card {
-    @apply bg-white border border-line rounded-xl;
-    box-shadow: 0 1px 0 rgba(28,25,23,0.04), 0 8px 24px -12px rgba(28,25,23,0.08);
-  }
-  .btn-primary {
-    @apply bg-forest text-cream px-4 py-2.5 rounded-lg font-medium text-sm transition-all hover:bg-forest2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-  .btn-ghost {
-    @apply text-ink2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all hover:bg-cream2 active:scale-[0.98];
-  }
-  .btn-outline {
-    @apply border border-line bg-white text-ink2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all hover:border-ink2 hover:bg-cream active:scale-[0.98];
-  }
   .field {
-    @apply w-full bg-cream border border-line rounded-lg px-3.5 py-2.5 text-ink text-sm focus:outline-none focus:border-forest focus:bg-white transition-colors;
+    @apply w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 text-stone-900 text-sm focus:outline-none focus:border-emerald-500 focus:bg-white transition-colors;
   }
-  .label {
-    @apply block text-xs font-medium uppercase tracking-wider text-muted mb-1.5;
-  }
-  .tag {
-    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-cream2 text-ink2 text-xs font-medium;
-  }
-  .glow-emerald {
-    box-shadow: 0 0 0 1px rgba(31, 78, 61, 0.15), 0 12px 32px -8px rgba(31, 78, 61, 0.25);
+  .field-sm {
+    @apply bg-stone-50 border border-stone-200 rounded-lg px-3 py-1.5 text-stone-900 text-sm focus:outline-none focus:border-emerald-500 transition-colors;
   }
 }
 
-/* nice scrollbar */
-::-webkit-scrollbar { width: 10px; height: 10px; }
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #D9D2C2; border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: #B8B0A0; }
+::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #a8a29e; }
