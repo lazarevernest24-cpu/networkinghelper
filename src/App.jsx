@@ -63,8 +63,12 @@ export default function App() {
     else { setActiveProfileIdState(null); setMode('profiles'); }
   };
 
+  // Bio хранится в localStorage для всех режимов
+  const getBio = (userId) => localStorage.getItem(`nh_bio_${userId}`) || '';
+  const saveBio = (userId, bio) => localStorage.setItem(`nh_bio_${userId}`, bio);
+
   const activeProfile = hasSupabase
-    ? { id: sbUser?.id, name: sbUser?.user_metadata?.name || sbUser?.email?.split('@')[0] || 'Пользователь', bio: '' }
+    ? { id: sbUser?.id, name: sbUser?.user_metadata?.name || sbUser?.email?.split('@')[0] || 'Пользователь', bio: getBio(sbUser?.id) }
     : profiles.find(p => p.id === activeProfileId);
 
   if (mode === 'loading') return <Splash />;
@@ -88,7 +92,13 @@ export default function App() {
       useSupabase={hasSupabase}
       onLogout={handleLogout}
       onUpdateProfile={(patch) => {
-        if (!hasSupabase) { updateProfile(activeProfile.id, patch); setProfiles(getProfiles()); }
+        if (hasSupabase && patch.bio !== undefined) {
+          saveBio(sbUser?.id, patch.bio);
+          setSbUser(prev => ({ ...prev, _bioUpdated: Date.now() })); // force re-render
+        } else if (!hasSupabase) {
+          updateProfile(activeProfile.id, patch);
+          setProfiles(getProfiles());
+        }
       }}
     />
   );
@@ -1236,16 +1246,45 @@ function ImportModal({ onClose, onImport }) {
 function SettingsModal({ profile, onUpdateProfile, onClose, useSupabase }) {
   const [bio, setBio] = useState(profile.bio || '');
   const [key, setKey] = useState(getApiKey());
+  const [saved, setSaved] = useState(false);
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const save = () => { if (!useSupabase) onUpdateProfile({ bio: bio.trim() }); if (isLocalhost) setApiKey(key); onClose(); };
+
+  const save = () => {
+    onUpdateProfile({ bio: bio.trim() });
+    if (isLocalhost) setApiKey(key);
+    setSaved(true);
+    setTimeout(() => { setSaved(false); onClose(); }, 800);
+  };
+
   return (
     <Modal onClose={onClose} title="Настройки">
       <div className="space-y-5">
-        <div><label className="text-xs uppercase tracking-widest text-stone-400 font-medium block mb-2">О тебе (контекст для ИИ)</label><textarea value={bio} onChange={e=>setBio(e.target.value)} className="field" rows={3} placeholder="Кто ты, чем занимаешься, что ищешь…"/></div>
-        {isLocalhost&&(<div><label className="text-xs uppercase tracking-widest text-stone-400 font-medium block mb-2">API-ключ (только для localhost)</label><input type="password" value={key} onChange={e=>setKey(e.target.value)} className="field font-mono text-xs" placeholder="sk-ant-api03-…"/></div>)}
-        <div className="flex gap-2 pt-2 border-t border-stone-100">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-600 text-sm hover:bg-stone-50">Отмена</button>
-          <button onClick={save} className="flex-1 py-2.5 rounded-xl bg-stone-900 text-white text-sm font-semibold hover:bg-stone-700">Сохранить</button>
+        <div>
+          <label className="text-xs uppercase tracking-widest text-stone-400 font-medium block mb-2">
+            О тебе (контекст для ИИ)
+          </label>
+          <textarea
+            value={bio}
+            onChange={e => setBio(e.target.value)}
+            className="field"
+            rows={4}
+            placeholder="Кто ты, чем занимаешься, что ищешь… Например: продакт в финтехе, ищу партнёров для стартапа, интересуюсь AI"
+          />
+          <p className="text-xs text-stone-400 mt-1.5">ИИ использует это при анализе контактов и генерации сообщений</p>
+        </div>
+        {isLocalhost && (
+          <div>
+            <label className="text-xs uppercase tracking-widest text-stone-400 font-medium block mb-2">API-ключ (только для localhost)</label>
+            <input type="password" value={key} onChange={e => setKey(e.target.value)} className="field font-mono text-xs" placeholder="sk-ant-api03-…" />
+          </div>
+        )}
+        <div className="flex gap-3 pt-2 border-t border-stone-100">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-600 text-sm font-medium hover:bg-stone-50 transition-colors">
+            Отмена
+          </button>
+          <button onClick={save} className={`flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-all ${saved ? 'bg-emerald-600' : 'bg-stone-900 hover:bg-stone-700'}`}>
+            {saved ? '✓ Сохранено' : 'Сохранить'}
+          </button>
         </div>
       </div>
     </Modal>
