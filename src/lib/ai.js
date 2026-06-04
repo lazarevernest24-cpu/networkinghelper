@@ -18,7 +18,7 @@ async function callClaude({ system, user, maxTokens = 800 }) {
   const body = {
     model: MODEL,
     max_tokens: maxTokens,
-    system: system + '\n\n' + RU_CONTEXT + '\n\nCRITICAL: Return ONLY raw JSON. No markdown, no ```json, no explanation, no text before or after. Start with { and end with }.',
+    system: system + '\n\n' + RU_CONTEXT + '\n\nCRITICAL RULES:\n1. Return ONLY raw JSON object. Nothing else.\n2. No markdown, no ```json fences, no explanation.\n3. No text before { or after }.\n4. All string values must be on ONE line - no newlines inside strings.\n5. No trailing commas.\n6. Start your response with { and end with }',
     messages: [{ role: 'user', content: user }],
   };
 
@@ -53,30 +53,46 @@ async function callClaude({ system, user, maxTokens = 800 }) {
 }
 
 function parseJSON(raw) {
-  // Strip markdown code fences
-  let s = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-  // Find outermost { ... }
+  // 1. Strip markdown fences
+  let s = raw
+    .replace(/```json\s*/gi, '')
+    .replace(/```\s*/g, '')
+    .trim();
+
+  // 2. Extract outermost { ... }
   const start = s.indexOf('{');
   const end = s.lastIndexOf('}');
   if (start === -1 || end === -1) throw new Error('ИИ вернул неожиданный ответ, попробуй снова');
   s = s.slice(start, end + 1);
-  // Fix common issues: trailing commas before } or ]
+
+  // 3. Fix trailing commas
   s = s.replace(/,\s*([}\]])/g, '$1');
+
+  // 4. Try direct parse
+  try { return JSON.parse(s); } catch {}
+
+  // 5. Fix newlines inside string values
   try {
-    return JSON.parse(s);
-  } catch (e) {
-    // Last resort: try to extract with a more lenient approach
-    try {
-      // Replace newlines inside string values that break JSON
-      s = s.replace(/:\s*"([^"]*?)"/gs, (match, val) => {
-        const fixed = val.replace(/\n/g, ' ').replace(/\r/g, '');
-        return `: "${fixed}"`;
-      });
-      return JSON.parse(s);
-    } catch {
-      throw new Error('Не удалось разобрать ответ ИИ, попробуй снова');
-    }
-  }
+    const fixed = s.replace(/"((?:[^"\\]|\\.)*)"/gs, (match, val) => {
+      return '"' + val
+        .replace(/\n/g, ' ')
+        .replace(/\r/g, '')
+        .replace(/\t/g, ' ')
+        + '"';
+    });
+    return JSON.parse(fixed);
+  } catch {}
+
+  // 6. Fix unescaped quotes inside strings (last resort)
+  try {
+    const fixed = s
+      .replace(/:\s*"(.*?)(?<!\\)"(\s*[,}\]])/gs, (m, val, end) =>
+        ': "' + val.replace(/"/g, '\\"') + '"' + end
+      );
+    return JSON.parse(fixed);
+  } catch {}
+
+  throw new Error('Не удалось разобрать ответ ИИ, попробуй снова');
 }
 
 function fmtContact(c) {
