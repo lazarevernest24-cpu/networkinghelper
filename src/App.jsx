@@ -1254,24 +1254,87 @@ function SettingsModal({ profile, onUpdateProfile, onClose, useSupabase }) {
 
 // ─── ADD CONTACT ─────────────────────────────────────────────────
 function AddContactModal({ onClose, onSave }) {
-  const [c, setC] = useState({name:'',position:'',company:'',phone:'',email:'',context:'',interests:'',canHelpMe:'',canHelpThem:'',goals:'',tags:'',notes:'',reminderDays:60});
-  const F=({k,label,ph,type='text'})=>(<div><label className="text-xs uppercase tracking-widest text-stone-400 font-medium block mb-1">{label}</label><input type={type} value={c[k]} onChange={e=>setC({...c,[k]:e.target.value})} className="field" placeholder={ph}/></div>);
-  const T=({k,label,ph,rows=2})=>(<div><label className="text-xs uppercase tracking-widest text-stone-400 font-medium block mb-1">{label}</label><textarea value={c[k]} onChange={e=>setC({...c,[k]:e.target.value})} className="field resize-none" rows={rows} placeholder={ph}/></div>);
-  return(
+  const [c, setC] = useState({
+    name:'', position:'', company:'', phone:'', email:'',
+    context:'', interests:'', canHelpMe:'', canHelpThem:'',
+    goals:'', tags:'', notes:'', reminderDays: 60
+  });
+  const set = (k) => (e) => setC(prev => ({ ...prev, [k]: e.target.value }));
+  const lbl = "text-xs uppercase tracking-widest text-stone-400 font-medium block mb-1.5";
+  return (
     <Modal onClose={onClose} title="Новый контакт">
-      <div className="space-y-3">
-        <F k="name" label="Имя *" ph="Анна Петрова"/>
-        <div className="grid grid-cols-2 gap-2"><F k="position" label="Должность" ph="Product Manager"/><F k="company" label="Компания" ph="TechCorp"/></div>
-        <div className="grid grid-cols-2 gap-2"><F k="phone" label="Телефон" ph="+7 999…"/><F k="email" label="Email" ph="email@…"/></div>
-        <T k="context" label="Где познакомились" ph="ProductCamp 2025…"/>
-        <F k="interests" label="Интересы" ph="AI, стартапы…"/>
-        <div className="grid grid-cols-2 gap-2"><T k="canHelpMe" label="Чем поможет мне" ph="Интро…" rows={2}/><T k="canHelpThem" label="Чем помогу я" ph="Экспертиза…" rows={2}/></div>
-        <F k="tags" label="Теги (через запятую)" ph="продукт, ai, фаундер"/>
-        <T k="notes" label="Заметки" ph="О чём говорили…"/>
-        <div><label className="text-xs uppercase tracking-widest text-stone-400 font-medium block mb-2">Напоминать каждые</label><div className="flex gap-2">{[30,60,90].map(d=>(<button key={d} type="button" onClick={()=>setC({...c,reminderDays:d})} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${c.reminderDays===d?'bg-stone-900 text-white':'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>{d} дн.</button>))}</div></div>
-        <div className="flex gap-2 pt-3 border-t border-stone-100">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-600 text-sm hover:bg-stone-50">Отмена</button>
-          <button onClick={()=>c.name.trim()&&onSave({...c,tags:c.tags.split(',').map(t=>t.trim()).filter(Boolean)})} disabled={!c.name.trim()} className="flex-1 py-2.5 rounded-xl bg-stone-900 text-white text-sm font-semibold hover:bg-stone-700 disabled:opacity-40">Добавить</button>
+      <div className="space-y-4">
+        <div>
+          <label className={lbl}>Имя *</label>
+          <input value={c.name} onChange={set('name')} className="field" placeholder="Анна Петрова" autoFocus />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={lbl}>Должность</label>
+            <input value={c.position} onChange={set('position')} className="field" placeholder="Product Manager" />
+          </div>
+          <div>
+            <label className={lbl}>Компания</label>
+            <input value={c.company} onChange={set('company')} className="field" placeholder="TechCorp" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={lbl}>Телефон</label>
+            <input value={c.phone} onChange={set('phone')} className="field" placeholder="+7 999…" />
+          </div>
+          <div>
+            <label className={lbl}>Email</label>
+            <input value={c.email} onChange={set('email')} className="field" placeholder="email@…" />
+          </div>
+        </div>
+        <div>
+          <label className={lbl}>Где познакомились</label>
+          <textarea value={c.context} onChange={set('context')} className="field resize-none" rows={2} placeholder="ProductCamp 2025, после доклада про AI…" />
+        </div>
+        <div>
+          <label className={lbl}>Интересы</label>
+          <input value={c.interests} onChange={set('interests')} className="field" placeholder="AI, стартапы, продукт…" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={lbl}>Чем поможет мне</label>
+            <textarea value={c.canHelpMe} onChange={set('canHelpMe')} className="field resize-none" rows={2} placeholder="Интро к инвесторам…" />
+          </div>
+          <div>
+            <label className={lbl}>Чем помогу я</label>
+            <textarea value={c.canHelpThem} onChange={set('canHelpThem')} className="field resize-none" rows={2} placeholder="Экспертиза, связи…" />
+          </div>
+        </div>
+        <div>
+          <label className={lbl}>Теги через запятую</label>
+          <input value={c.tags} onChange={set('tags')} className="field" placeholder="продукт, ai, фаундер" />
+        </div>
+        <div>
+          <label className={lbl}>Заметки</label>
+          <textarea value={c.notes} onChange={set('notes')} className="field resize-none" rows={2} placeholder="О чём говорили, общие темы…" />
+        </div>
+        <div>
+          <label className={lbl}>Напоминать каждые</label>
+          <div className="flex gap-2">
+            {[30, 60, 90].map(d => (
+              <button key={d} type="button" onClick={() => setC(prev => ({ ...prev, reminderDays: d }))}
+                className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${c.reminderDays === d ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}>
+                {d} дн.
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-3 pt-2 border-t border-stone-100">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-600 text-sm font-medium hover:bg-stone-50 transition-colors">
+            Отмена
+          </button>
+          <button
+            onClick={() => c.name.trim() && onSave({ ...c, tags: c.tags.split(',').map(t => t.trim()).filter(Boolean) })}
+            disabled={!c.name.trim()}
+            className="flex-1 py-2.5 rounded-xl bg-stone-900 text-white text-sm font-semibold hover:bg-stone-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            Добавить
+          </button>
         </div>
       </div>
     </Modal>
